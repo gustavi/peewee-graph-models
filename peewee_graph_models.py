@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 import argparse
+import importlib
 import inspect
 
 from graphviz import Source
-import peewee
 
 
 GRAPH_TEMPLATE = '''digraph peewee_models {{
@@ -48,20 +48,8 @@ RELATION_TEMPLATE = '{model} -> {target_model} [label="{field}"] ' \
                     '[arrowhead=empty, arrowtail=none, dir=both];'
 
 
-def is_peewee_model(obj):
-    """
-    Check if the object is a peewee model.
-
-    :param obj: a Python object
-    :return: True if the object is a peewee model
-    :rtype: bool
-    """
-    return inspect.isclass(obj) \
-        and issubclass(obj, peewee.Model) \
-        and not obj == peewee.Model
-
-
-def export_models(mod, main_color, bg_color, export_file, export_format, view):
+def export_models(mod, main_color, bg_color, export_file, export_format, view,
+                  peewee_module):
     """
     Export peewee models to JPG, PDF, etc.
 
@@ -71,10 +59,26 @@ def export_models(mod, main_color, bg_color, export_file, export_format, view):
     :param str export_file: name of the file to export, without extension
     :param str export_format: extension for the file to export
     :param bool view: display file after generation
+    :param str peewee_module: Peewee module to load
     :return: nothing
     """
+    # Import peewee
+    peewee = importlib.import_module(peewee_module)
+
+    def is_peewee_model(pyobj):
+        """
+        Check if the object is a peewee model.
+
+        :param pyobj: a Python object
+        :return: True if the object is a peewee model
+        :rtype: bool
+        """
+        return inspect.isclass(pyobj) \
+            and issubclass(pyobj, peewee.Model) \
+            and not pyobj == peewee.Model
+
     # Import module to parse
-    mod_imported = __import__(mod)
+    mod_imported = importlib.import_module(mod)
     models = inspect.getmembers(mod_imported, predicate=is_peewee_model)
 
     models_dot = ''
@@ -164,6 +168,11 @@ if __name__ == '__main__':
         action='store_true',
         help='Display file after generation'
     )
+    parser.add_argument(
+        '--peewee',
+        action='store',
+        help='Peewee module to load'
+    )
 
     args = parser.parse_args()
     export_models(
@@ -172,5 +181,7 @@ if __name__ == '__main__':
         bg_color=args.bg_color,
         export_file=args.export_file,
         export_format=args.export_format,
-        view=args.view
+        view=args.view,
+        peewee_module=args.peewee
     )
+
