@@ -160,8 +160,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '--export-format',
         action='store',
-        default='png',
-        help='Format to export (PDF, PNG, etc.)'
+        default='svg',
+        help='Format to export (SVG, PDF, PNG, etc.)'
     )
     parser.add_argument(
         '--view',
