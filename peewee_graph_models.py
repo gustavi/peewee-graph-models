@@ -49,7 +49,7 @@ RELATION_TEMPLATE = '{model} -> {target_model} [label="{field}"] ' \
 
 
 def export_models(mod, main_color, bg_color, export_file, export_format, view,
-                  peewee_module):
+                  peewee_module, display):
     """
     Export peewee models to JPG, PDF, etc.
 
@@ -60,8 +60,11 @@ def export_models(mod, main_color, bg_color, export_file, export_format, view,
     :param str export_format: extension for the file to export
     :param bool view: display file after generation
     :param str peewee_module: Peewee module to load
+    :param str display: Fields to display (all, relations or none)
     :return: nothing
     """
+    assert display in ['all', 'relations', 'none'], 'Invalid display argument'
+
     # Import peewee
     peewee = importlib.import_module(peewee_module)
 
@@ -89,18 +92,27 @@ def export_models(mod, main_color, bg_color, export_file, export_format, view,
 
         for field, obj in model._meta.fields.items():
 
-            # Generate field dot data
-            field_dot_args = ''
+            if display != 'none':
 
-            if obj.primary_key or isinstance(obj, peewee.ForeignKeyField):
-                field_dot_args += ' Bold'
+                add_field = True
+                if display == 'relations':
+                    add_field = isinstance(obj, peewee.ForeignKeyField)
 
-            fields_dot += FIELD_TEMPLATE.format(
-                name=field,
-                type=type(obj).__name__,
-                args=field_dot_args,
-                color=main_color
-            )
+                if add_field:
+
+                    # Generate field dot data
+                    field_dot_args = ''
+
+                    if obj.primary_key or isinstance(
+                            obj, peewee.ForeignKeyField):
+                        field_dot_args += ' Bold'
+
+                    fields_dot += FIELD_TEMPLATE.format(
+                        name=field,
+                        type=type(obj).__name__,
+                        args=field_dot_args,
+                        color=main_color
+                    )
 
             # Generate relations
             if isinstance(obj, peewee.ForeignKeyField):
@@ -173,6 +185,14 @@ if __name__ == '__main__':
         action='store',
         help='Peewee module to load'
     )
+    parser.add_argument(
+        '--display',
+        action='store',
+        choices=['all', 'relations', 'none'],
+        default='all',
+        help='Fields to display (all: all fields | relations: only '
+             'relations fields | none: no fields, only models)'
+    )
 
     args = parser.parse_args()
     export_models(
@@ -182,6 +202,7 @@ if __name__ == '__main__':
         export_file=args.export_file,
         export_format=args.export_format,
         view=args.view,
-        peewee_module=args.peewee
+        peewee_module=args.peewee,
+        display=args.display
     )
 
