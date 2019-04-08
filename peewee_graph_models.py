@@ -48,12 +48,12 @@ RELATION_TEMPLATE = '{model} -> {target_model} [label="{field}"] ' \
                     '[arrowhead=empty, arrowtail=none, dir=both];'
 
 
-def export_models(mod, main_color, bg_color, export_file, export_format, view,
-                  peewee_module, display):
+def export_models(mods, main_color, bg_color, export_file, export_format, view,
+                  peewee_module, display, display_modules_name):
     """
     Export peewee models to JPG, PDF, etc.
 
-    :param str mod: module, named as imported
+    :param str,list mods: modules, named as imported
     :param str main_color: main color (in hex format, starting with #)
     :param str bg_color: background color (in hex format, starting with #)
     :param str export_file: name of the file to export, without extension
@@ -61,9 +61,13 @@ def export_models(mod, main_color, bg_color, export_file, export_format, view,
     :param bool view: display file after generation
     :param str peewee_module: Peewee module to load
     :param str display: Fields to display (all, relations or none)
+    :param bool display_modules_name: display modules name in model title
     :return: nothing
     """
     assert display in ['all', 'relations', 'none'], 'Invalid display argument'
+
+    if isinstance(mods, str):
+        mods = [mods]
 
     # Import peewee
     peewee = importlib.import_module(peewee_module)
@@ -80,54 +84,65 @@ def export_models(mod, main_color, bg_color, export_file, export_format, view,
             and issubclass(pyobj, peewee.Model) \
             and not pyobj == peewee.Model
 
-    # Import module to parse
-    mod_imported = importlib.import_module(mod)
-    models = inspect.getmembers(mod_imported, predicate=is_peewee_model)
+    if len(mods) == 0:
+        raise ValueError('modules cannot be empty')
 
     models_dot = ''
     relations_dot = ''
 
-    for name, model in models:
-        fields_dot = ''
+    # Import module to parse
+    for mod in mods:
+        mod_imported = importlib.import_module(mod)
+        models = inspect.getmembers(mod_imported, predicate=is_peewee_model)
 
-        for field, obj in model._meta.fields.items():
+        for name, model in models:
+            fields_dot = ''
 
-            if display != 'none':
+            if display_modules_name:
+                name = '"{module}.{name}"'.format(module=mod, name=name)
 
-                add_field = True
-                if display == 'relations':
-                    add_field = isinstance(obj, peewee.ForeignKeyField)
+            for field, obj in model._meta.fields.items():
 
-                if add_field:
+                if display != 'none':
 
-                    # Generate field dot data
-                    field_dot_args = ''
+                    add_field = True
+                    if display == 'relations':
+                        add_field = isinstance(obj, peewee.ForeignKeyField)
 
-                    if obj.primary_key or isinstance(
-                            obj, peewee.ForeignKeyField):
-                        field_dot_args += ' Bold'
+                    if add_field:
 
-                    fields_dot += FIELD_TEMPLATE.format(
-                        name=field,
-                        type=type(obj).__name__,
-                        args=field_dot_args,
-                        color=main_color
+                        # Generate field dot data
+                        field_dot_args = ''
+
+                        if obj.primary_key or isinstance(
+                                obj, peewee.ForeignKeyField):
+                            field_dot_args += ' Bold'
+
+                        fields_dot += FIELD_TEMPLATE.format(
+                            name=field,
+                            type=type(obj).__name__,
+                            args=field_dot_args,
+                            color=main_color
+                        )
+
+                # Generate relations
+                if isinstance(obj, peewee.ForeignKeyField):
+                    target_name = obj.rel_model.__name__
+                    if display_modules_name:
+                        target_name = '"{module}.{name}"'.format(
+                            module=mod, name=target_name)
+                    relations_dot += RELATION_TEMPLATE.format(
+                        model=name,
+                        target_model=target_name,
+                        field=field
                     )
 
-            # Generate relations
-            if isinstance(obj, peewee.ForeignKeyField):
-                relations_dot += RELATION_TEMPLATE.format(
-                    model=name,
-                    target_model=obj.rel_model.__name__,
-                    field=field
-                )
-
-        models_dot += MODEL_TEMPLATE.format(
-            name=name,
-            fields=fields_dot,
-            color_bg=bg_color,
-            color_main=main_color
-        )
+            models_dot += MODEL_TEMPLATE.format(
+                name=name,
+                fields=fields_dot,
+                color_bg=bg_color,
+                color_main=main_color
+            )
 
     graph_dot = GRAPH_TEMPLATE.format(
         models=models_dot,
@@ -147,9 +162,9 @@ def export_models(mod, main_color, bg_color, export_file, export_format, view,
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Peewee model visualization')
     parser.add_argument(
-        'module',
+        'modules',
         action='store',
-        help='Module to parse'
+        help='Modules to parse'
     )
     parser.add_argument(
         '--main-color',
@@ -193,16 +208,30 @@ if __name__ == '__main__':
         help='Fields to display (all: all fields | relations: only '
              'relations fields | none: no fields, only models)'
     )
+    parser.add_argument(
+        '--display-modules-name',
+        action='store_true',
+        help='Display modules name in model title ([mod] -> [mod].[model])',
+        default=None
+    )
 
     args = parser.parse_args()
+
+    modules = list(set(args.modules.split(',')))
+
+    d_modules_name = args.display_modules_name
+    if d_modules_name is None:
+        d_modules_name = len(modules) > 1
+
     export_models(
-        mod=args.module,
+        mods=modules,
         main_color=args.main_color,
         bg_color=args.bg_color,
         export_file=args.export_file,
         export_format=args.export_format,
         view=args.view,
         peewee_module=args.peewee,
-        display=args.display
+        display=args.display,
+        display_modules_name=d_modules_name
     )
 
