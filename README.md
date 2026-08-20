@@ -1,6 +1,9 @@
 Peewee Graph Models
 ===================
 
+> [!WARNING]
+> **This project is deprecated and is no longer maintained**. It has several issues that require a complete rewrite, particularly the fact that the program executes Python code instead of reading and parsing the AST. Feel free to fork it if you find it useful!
+
 Visualize peewee database and export it as JPG/PDF.
 
 This project is inspired by [django extension](https://github.com/django-extensions/django-extensions) ([MIT licence](https://raw.githubusercontent.com/django-extensions/django-extensions/master/LICENSE)) and the structure of dot files comes from there templates.
